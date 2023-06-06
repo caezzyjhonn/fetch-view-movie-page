@@ -25,6 +25,11 @@
         <div class="row">
             <div class="col">
                 <!-- Table to display movies -->
+
+                <div class="my-3">
+                    <input type="email" class="form-control border-0 border-bottom" id="searchInput" placeholder="Search movies...">
+                  </div>
+
                 <table class="table table-striped">
                     <thead>
                         <tr>
@@ -171,304 +176,344 @@
 
     <!-- Include Bootstrap JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz"
-        crossorigin="anonymous"></script>
+    integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz"
+    crossorigin="anonymous"></script>
 
-    <!-- JavaScript code -->
-    <script>
-        // API URL for CRUD operations
-        const url = 'https://crudcrud.com/api/009261a0059844eaa624a4c306bd77b2'
+<script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.js"></script>
 
-        // Function to get genres from API or localStorage
-        const getGenres = async () => {
-            if (localStorage.getItem("genres") === null) {
-                // Fetch genres from API and store in localStorage
-                await fetch(`${url}/genres`)
-                    .then(response => response.json())
-                    .then(genres => localStorage.setItem("genres", JSON.stringify(genres)))
-                    .catch(error => console.log(error))
+<!-- JavaScript code -->
+<script>
+    // API URL for CRUD operations
+    const url = 'https://crudcrud.com/api/d519882dacef4d489dbfc0288b2e74ee'
+
+    // Function to get genres from API or localStorage
+    const getGenres = async () => {
+        if (localStorage.getItem("genres") === null) {
+            // Fetch genres from API and store in localStorage
+            await fetch(`${url}/genres`)
+                .then(response => response.json())
+                .then(genres => localStorage.setItem("genres", JSON.stringify(genres)))
+                .catch(error => console.log(error))
+        }
+
+        const genres = JSON.parse(localStorage.getItem("genres"))
+        const genreDropdown = document.getElementById('genre')
+        genreDropdown.innerHTML = ''
+
+        let defaultGenreOption = document.createElement('option')
+        defaultGenreOption.innerText = 'Please choose a genre'
+        genreDropdown.append(defaultGenreOption)
+
+        for (let i = 0; i < genres.length; i++) {
+            // Create genre options and append to the dropdown
+            let option = document.createElement('option')
+            option.innerText = genres[i].title;
+            option.value = genres[i]._id
+
+            genreDropdown.append(option)
+        }
+
+        let newGenreOption = document.createElement('option')
+        newGenreOption.innerText = 'Create new genre'
+        newGenreOption.value = 'new_genre_option'
+        genreDropdown.append(newGenreOption)
+
+        genreDropdown.addEventListener("change", (event) => {
+            const selectedGenreOption = event.target.value
+            
+            if(selectedGenreOption === 'new_genre_option') {
+                const newMovieModal = bootstrap.Modal.getOrCreateInstance("#newMovieModal")
+                newMovieModal.hide()
+
+                const newGenreModal = bootstrap.Modal.getOrCreateInstance("#newGenreModal")
+                newGenreModal.show()
             }
+        })
+    }
+    // Call the function to get genres
+    getGenres()
 
-            const genres = JSON.parse(localStorage.getItem("genres"))
-            const genreDropdown = document.getElementById('genre')
-            genreDropdown.innerHTML = ''
+    // Function to get the title of a genre based on its ID
+    const getGenreTitle = (id) => {
+        const genres = JSON.parse(localStorage.getItem("genres"))
+        let title = 'Invalid genre'
 
-            let defaultGenreOption = document.createElement('option')
-            defaultGenreOption.innerText = 'Please choose a genre'
-            genreDropdown.append(defaultGenreOption)
+        // Find the index of the genre with the given ID
+        const index = genres.map(genre => genre._id).indexOf(id)
+        if(index > -1) {
+            title = genres[index].title
+        }
+        return title
+    }
 
-            for (let i = 0; i < genres.length; i++) {
-                // Create genre options and append to the dropdown
-                let option = document.createElement('option')
-                option.innerText = genres[i].title;
-                option.value = genres[i]._id
+    // Function to get movies from API or localStorage
+    const getMovies = async () => {
+        if (localStorage.getItem("movies") === null) {
+            // Fetch movies from API and store in localStorage
+            await fetch(`${url}/movies`)
+                .then(response => response.json())
+                .then(movies => {
+                    const list = movies.map((movie) => {
+                        movie.genreTitle = getGenreTitle(movie.genre)
+                        return movie
+                    })
+                    localStorage.setItem("movies", JSON.stringify(list))
+                })
+                .catch(error => console.log(error))
+        }
 
-                genreDropdown.append(option)
-            }
+        const movies = JSON.parse(localStorage.getItem("movies"))
+        generateTableMovies(movies)
 
-            let newGenreOption = document.createElement('option')
-            newGenreOption.innerText = 'Create new genre'
-            newGenreOption.value = 'new_genre_option'
-            genreDropdown.append(newGenreOption)
+        const searchInput = document.getElementById("searchInput")
+        searchInput.addEventListener("keyup", (event) => {
+            const searchTerm = event.target.value
 
-            genreDropdown.addEventListener("change", (event) => {
-                const selectedGenreOption = event.target.value
-                
-                if(selectedGenreOption === 'new_genre_option') {
-                    const newMovieModal = bootstrap.Modal.getOrCreateInstance("#newMovieModal")
-                    newMovieModal.hide()
-
-                    const newGenreModal = bootstrap.Modal.getOrCreateInstance("#newGenreModal")
-                    newGenreModal.show()
+            if(searchTerm.length >= 3) {
+                const options = {
+                    includeScore: true,
+                    keys: ['title', 'description', 'genreTitle']
                 }
-            })
-        }
-        // Call the function to get genres
-        getGenres()
 
-        // Function to get the title of a genre based on its ID
-        const getGenreTitle = (id) => {
-            const genres = JSON.parse(localStorage.getItem("genres"))
-            let title = 'Invalid genre'
+                const fuse = new Fuse(movies, options)
 
-            // Find the index of the genre with the given ID
-            const index = genres.map(genre => genre._id).indexOf(id)
-            if(index > -1) {
-                title = genres[index].title
+                const result = fuse.search(searchTerm)
+                const searchResult = result.map(entry => entry.item)
+                console.log(result)
+                generateTableMovies(searchResult)
+            } else {
+                generateTableMovies(movies)
             }
-            return title
-        }
+        })
 
-        // Function to get movies from API or localStorage
-        const getMovies = async () => {
-            if (localStorage.getItem("movies") === null) {
-                // Fetch movies from API and store in localStorage
-                await fetch(`${url}/movies`)
-                    .then(response => response.json())
-                    .then(movies => localStorage.setItem("movies", JSON.stringify(movies)))
-                    .catch(error => console.log(error))
-            }
 
-            const movies = JSON.parse(localStorage.getItem("movies"))
+        
+    }
+    // Call the function to get movies
+    getMovies()
 
-            const movieTableBody = document.getElementById('movieTableBody')
-            movieTableBody.innerHTML = ''
-            let rows = ''
+    function generateTableMovies(movies) {
+        const movieTableBody = document.getElementById('movieTableBody')
+        movieTableBody.innerHTML = ''
+        let rows = ''
 
-            for (let i = 0; i < movies.length; i++) {
-                // Create rows for each movie and append to the table body
-                rows += `<tr>
-                            <td>${i + 1}.</td>
-                            <td>
-                                <a href="view.html?id=${movies[i]._id}">${movies[i].title}</a>    
-                            </td>
-                            <td>${getGenreTitle(movies[i].genre)}</td>
-                            <td>${movies[i].release_date}</td>
-                            <td>
-                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                                    <div class="btn-group text-end" role="group">
-                                        <button type="button" class="btn btn-sm btn-outline-primary editMovieButton" data-movie="${movies[i]._id}">Edit</button>
-                                        <button type="button" class="btn btn-sm btn-outline-primary deleteMovieButton" data-movie="${movies[i]._id}">Delete</button>
-                                    </div>
+        for (let i = 0; i < movies.length; i++) {
+            // Create rows for each movie and append to the table body
+            rows += `<tr>
+                        <td>${i + 1}.</td>
+                        <td>
+                            <a href="view.html?id=${movies[i]._id}">${movies[i].title}</a>    
+                        </td>
+                        <td>${movies[i].genreTitle}</td>
+                        <td>${movies[i].release_date}</td>
+                        <td>
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <div class="btn-group text-end" role="group">
+                                    <button type="button" class="btn btn-sm btn-outline-primary editMovieButton" data-movie="${movies[i]._id}">Edit</button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary deleteMovieButton" data-movie="${movies[i]._id}">Delete</button>
                                 </div>
-                            </td>
-                        </tr>`
-            }
-
-            movieTableBody.innerHTML = rows
-        }
-        // Call the function to get movies
-        getMovies()
-
-        // Function to open the new movie modal
-        const openNewMovieModal = () => {
-            const newMovieModal = bootstrap.Modal.getOrCreateInstance("#newMovieModal")
-            newMovieModal.show()
+                            </div>
+                        </td>
+                    </tr>`
         }
 
-        // Event listener for the new movie form submission
-        document.getElementById('newMovieForm').addEventListener('submit', (event) => {
-            event.preventDefault()
+        movieTableBody.innerHTML = rows
+    }
 
-            // Get form input values
-            const genre = document.getElementById('genre').value
-            const title = document.getElementById('title').value
-            const description = document.getElementById('description').value
-            const release_date = document.getElementById('release_date').value
-            const poster_url = document.getElementById('poster_url').value
+    // Function to open the new movie modal
+    const openNewMovieModal = () => {
+        const newMovieModal = bootstrap.Modal.getOrCreateInstance("#newMovieModal")
+        newMovieModal.show()
+    }
 
-            // Send a POST request to create a new movie
-            fetch(`${url}/movies`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    genre,
-                    title,
-                    description,
-                    release_date,
-                    poster_url
-                })
+    // Event listener for the new movie form submission
+    document.getElementById('newMovieForm').addEventListener('submit', (event) => {
+        event.preventDefault()
+
+        // Get form input values
+        const genre = document.getElementById('genre').value
+        const title = document.getElementById('title').value
+        const description = document.getElementById('description').value
+        const release_date = document.getElementById('release_date').value
+        const poster_url = document.getElementById('poster_url').value
+
+        // Send a POST request to create a new movie
+        fetch(`${url}/movies`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                genre,
+                title,
+                description,
+                release_date,
+                poster_url
             })
-                .then(response => response.json())
-                .then(result => {
-                    const newMovieModal = bootstrap.Modal.getOrCreateInstance("#newMovieModal")
-                    newMovieModal.hide()
+        })
+            .then(response => response.json())
+            .then(result => {
+                const newMovieModal = bootstrap.Modal.getOrCreateInstance("#newMovieModal")
+                newMovieModal.hide()
 
+                // Remove movies from localStorage and refresh the movie list
+                localStorage.removeItem("movies")
+                getMovies()
+
+                // Clear form input fields
+                document.getElementById('title').value = ''
+                document.getElementById('description').value = ''
+                document.getElementById('release_date').value = ''
+                document.getElementById('poster_url').value = ''
+            })
+            .catch(error => {
+                console.log(error)
+            })
+    })
+
+    // Event listeners for the delete movie buttons
+    const deleteMovieButtons = document.querySelectorAll('.deleteMovieButton')
+    deleteMovieButtons.forEach(button => {
+        button.addEventListener('click', event => {
+            const movieId = event.target.getAttribute('data-movie')
+
+            // Send a DELETE request to delete the movie
+            fetch(`${url}/movies/${movieId}`, {
+                method: 'DELETE',
+            })
+                .then(response => {
                     // Remove movies from localStorage and refresh the movie list
                     localStorage.removeItem("movies")
                     getMovies()
-
-                    // Clear form input fields
-                    document.getElementById('title').value = ''
-                    document.getElementById('description').value = ''
-                    document.getElementById('release_date').value = ''
-                    document.getElementById('poster_url').value = ''
                 })
                 .catch(error => {
                     console.log(error)
                 })
         })
+    })
 
-        // Event listeners for the delete movie buttons
-        const deleteMovieButtons = document.querySelectorAll('.deleteMovieButton')
-        deleteMovieButtons.forEach(button => {
-            button.addEventListener('click', event => {
-                const movieId = event.target.getAttribute('data-movie')
+    // Event listeners for the edit movie buttons
+    const editMovieButtons = document.querySelectorAll('.editMovieButton')
+    editMovieButtons.forEach(button => {
+        button.addEventListener('click', event => {
+            const movieId = event.target.getAttribute('data-movie')
+            const movies = JSON.parse(localStorage.getItem("movies"))
+            // Find the index of the movie with the given movieId
+            const index = movies.map(movie => movie._id).indexOf(movieId)
+            const selectedMovie = movies[index]
+            
+            // Get new movie genre dropdown
+            const newMovieGenreDropdown = document.getElementById('genre')
 
-                // Send a DELETE request to delete the movie
-                fetch(`${url}/movies/${movieId}`, {
-                    method: 'DELETE',
-                })
-                    .then(response => {
-                        // Remove movies from localStorage and refresh the movie list
-                        localStorage.removeItem("movies")
-                        getMovies()
-                    })
-                    .catch(error => {
-                        console.log(error)
-                    })
+            // Get the HTML of new movie genre dropdown and assign it to the update movie genre dropdown
+            document.getElementById('updateMovieGenre').innerHTML = newMovieGenreDropdown.innerHTML
+
+            document.getElementById('updateMovieId').value = movieId
+            document.getElementById('updateMovieTitle').value = selectedMovie.title
+            document.getElementById('updateMovieDescription').value = selectedMovie.description
+            document.getElementById('updateMovieReleaseDate').value = selectedMovie.release_date
+            document.getElementById('updatePosterUrl').value = selectedMovie.poster_url
+            
+            const updateMovieModal = bootstrap.Modal.getOrCreateInstance("#updateMovieModal")
+            updateMovieModal.show()
+        })
+    })
+
+    // Event listener for the new movie form submission
+    document.getElementById('updateMovieForm').addEventListener('submit', (event) => {
+        event.preventDefault()
+
+        // Get form input values
+        const id = document.getElementById('updateMovieId').value
+        const genre = document.getElementById('updateMovieGenre').value
+        const title = document.getElementById('updateMovieTitle').value
+        const description = document.getElementById('updateMovieDescription').value
+        const release_date = document.getElementById('updateMovieReleaseDate').value
+        const poster_url = document.getElementById('updatePosterUrl').value
+
+        // Send a POST request to create a new movie
+        fetch(`${url}/movies/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                genre,
+                title,
+                description,
+                release_date,
+                poster_url
             })
         })
-
-        // Event listeners for the edit movie buttons
-        const editMovieButtons = document.querySelectorAll('.editMovieButton')
-        editMovieButtons.forEach(button => {
-            button.addEventListener('click', event => {
-                const movieId = event.target.getAttribute('data-movie')
-                const movies = JSON.parse(localStorage.getItem("movies"))
-                // Find the index of the movie with the given movieId
-                const index = movies.map(movie => movie._id).indexOf(movieId)
-                const selectedMovie = movies[index]
-                
-                // Get new movie genre dropdown
-                const newMovieGenreDropdown = document.getElementById('genre')
-
-                // Get the HTML of new movie genre dropdown and assign it to the update movie genre dropdown
-                document.getElementById('updateMovieGenre').innerHTML = newMovieGenreDropdown.innerHTML
-
-                document.getElementById('updateMovieId').value = movieId
-                document.getElementById('updateMovieTitle').value = selectedMovie.title
-                document.getElementById('updateMovieDescription').value = selectedMovie.description
-                document.getElementById('updateMovieReleaseDate').value = selectedMovie.release_date
-                document.getElementById('updatePosterUrl').value = selectedMovie.poster_url
-                
+            .then(result => {
                 const updateMovieModal = bootstrap.Modal.getOrCreateInstance("#updateMovieModal")
-                updateMovieModal.show()
+                updateMovieModal.hide()
+
+                // Remove movies from localStorage and refresh the movie list
+                localStorage.removeItem("movies")
+                getMovies()
+
+                // Clear form input fields
+                document.getElementById('updateMovieId').value = ''
+                document.getElementById('updateMovieGenre').value = ''
+                document.getElementById('updateMovieTitle').value = ''
+                document.getElementById('updateMovieDescription').value = ''
+                document.getElementById('updateMovieReleaseDate').value = ''
+                document.getElementById('updateMoviePosterUrl').value = ''
+            })
+            .catch(error => {
+                console.log(error)
+            })
+    })
+
+    // Event listener for the new genre form submission
+    document.getElementById('newGenreForm').addEventListener('submit', (event) => {
+        event.preventDefault()
+
+        // Get form input values
+        const genreTitle = document.getElementById('genreTitle').value
+        const genreDescription = document.getElementById('genreDescription').value
+
+        // Send a POST request to create a new genre
+        fetch(`${url}/genres`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title: genreTitle,
+                description: genreDescription
             })
         })
+            .then(response => response.json())
+            .then(async (result) => {
+                const newGenreModal = bootstrap.Modal.getOrCreateInstance("#newGenreModal")
+                const newMovieModal = bootstrap.Modal.getOrCreateInstance("#newMovieModal")
 
-        // Event listener for the new movie form submission
-        document.getElementById('updateMovieForm').addEventListener('submit', (event) => {
-            event.preventDefault()
+                newGenreModal.hide()
+                newMovieModal.show()
 
-            // Get form input values
-            const id = document.getElementById('updateMovieId').value
-            const genre = document.getElementById('updateMovieGenre').value
-            const title = document.getElementById('updateMovieTitle').value
-            const description = document.getElementById('updateMovieDescription').value
-            const release_date = document.getElementById('updateMovieReleaseDate').value
-            const poster_url = document.getElementById('updatePosterUrl').value
+                // Remove genres from localStorage and refresh the genre list
+                localStorage.removeItem("genres")
+                await getGenres()
 
-            // Send a POST request to create a new movie
-            fetch(`${url}/movies/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    genre,
-                    title,
-                    description,
-                    release_date,
-                    poster_url
-                })
+                // Clear form input fields
+                document.getElementById('genreTitle').value = ''
+                document.getElementById('genreDescription').value = ''
+
+                // Set the value of new movie genre to the newly create genre's id
+                document.getElementById('genre').value = result._id
             })
-                .then(result => {
-                    const updateMovieModal = bootstrap.Modal.getOrCreateInstance("#updateMovieModal")
-                    updateMovieModal.hide()
-
-                    // Remove movies from localStorage and refresh the movie list
-                    localStorage.removeItem("movies")
-                    getMovies()
-
-                    // Clear form input fields
-                    document.getElementById('updateMovieId').value = ''
-                    document.getElementById('updateMovieGenre').value = ''
-                    document.getElementById('updateMovieTitle').value = ''
-                    document.getElementById('updateMovieDescription').value = ''
-                    document.getElementById('updateMovieReleaseDate').value = ''
-                    document.getElementById('updatePosterUrl').value = ''
-                })
-                .catch(error => {
-                    console.log(error)
-                })
-        })
-
-        // Event listener for the new genre form submission
-        document.getElementById('newGenreForm').addEventListener('submit', (event) => {
-            event.preventDefault()
-
-            // Get form input values
-            const genreTitle = document.getElementById('genreTitle').value
-            const genreDescription = document.getElementById('genreDescription').value
-
-            // Send a POST request to create a new genre
-            fetch(`${url}/genres`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    title: genreTitle,
-                    description: genreDescription
-                })
+            .catch(error => {
+                console.log(error)
             })
-                .then(response => response.json())
-                .then(async (result) => {
-                    const newGenreModal = bootstrap.Modal.getOrCreateInstance("#newGenreModal")
-                    const newMovieModal = bootstrap.Modal.getOrCreateInstance("#newMovieModal")
+            
+    })
 
-                    newGenreModal.hide()
-                    newMovieModal.show()
-
-                    // Remove genres from localStorage and refresh the genre list
-                    localStorage.removeItem("genres")
-                    await getGenres()
-
-                    // Clear form input fields
-                    document.getElementById('genreTitle').value = ''
-                    document.getElementById('genreDescription').value = ''
-
-                    // Set the value of new movie genre to the newly create genre's id
-                    document.getElementById('genre').value = result._id
-                })
-                .catch(error => {
-                    console.log(error)
-                })
-        })
-    </script>
+    const search = (event) => {
+        
+    }
+</script>
 </body>
 
 </html>
